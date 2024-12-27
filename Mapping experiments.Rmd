@@ -1,0 +1,230 @@
+---
+title: "Moving Music Mapping investigation"
+author: "Laura Flenley"
+date: "2024-12-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, echo = TRUE)
+#include = TRUE: means that any outputs or graphs produced from the code will be shown in the final document
+#echo = FALSE: means that the code used to produce the outputs will not be printed in the final document 
+
+#chunk summary: in general throughout the document, code outputs will be shown, but not the code used to produce them: unless specified otherwise in a specific chunk
+```
+
+<!--### 1. Install packages--> 
+
+```{r install packages, eval = FALSE}
+#code for installing packages
+install.packages("tidyverse")
+install.packages("sf")
+
+#this code will not run unless you change 'eval = TRUE' in the chunk setup: because I already have the packages installed on my computer, so I do not need to install them each time I run the code. They are included so that anyone else looking to run this code can install the packages if they do not have them installed already.
+
+#Packages are collections of code instructions that someone else has helpfully made, that make it easier to do particular things - like a shortcut. I will use the 'tidyverse' package (has code for plotting graphs) and 'sf' package (has code for making maps alongside the tidyverse package).
+
+#Packages need to be 'installed' (aka downloaded) onto a computer once, but not a second time. 
+
+```
+
+<!-- ### 2.  Load packages and data -->
+
+**Dataset / Map data:** I have downloaded **'Westminster Parliamentary Constituencies Boundaries July 2024'** from the **Open Geography Portal on the Office for National Statistics** website, since this was chosen as the example when I was being shown how to do this. I should be able to make similar things with a different type of map if that would be more useful.
+
+```{r load packages & data, include=FALSE}
+#load packages
+library(tidyverse)
+library(sf)
+
+#load data
+#1: unzip the data - unpack it from the format it was downloaded to my computer in
+#unzip("C:\\Users\\lflen\\Downloads\\Westminster_Parliamentary_Constituencies_July_2024_Boundaries_UK_BUC_2322505427074709226.zip")
+
+#find the relevant file name: we need the file that ends in 'shp', so we ask R to look for it and then tell us the name of the file
+#list.files(pattern = "\\.shp$", full.names = TRUE)
+
+#now we know the file name: load the data into R, and call it 'cons_sf'
+cons_sf<-read_sf("data/constituencies_2024./PCON_JULY_2024_UK_BUC.shp")
+
+#have a look at it 
+head(cons_sf)
+
+```
+
+### Graph of all UK constituencies (all the data)
+
+- I have chosen these colours - can be changed etc.
+
+- Oxfordshire is in green
+
+```{r map 1: everything, eval=TRUE}
+
+#make a new dataset that is a subset of the entire dataset - containing only oxfordshire constituencies. we will call it 'oxfordshire_sf'
+cons_sf %>%
+  filter(PCON24NM %in% c("Banbury", "Bicester and Woodstock", "Didcot and Wantage", "Henley and Thame", "Oxford East", "Oxford West and Abingdon", "Witney")) -> oxfordshire_sf
+
+#plot the entire dataset, with oxfordshire in green: 
+ggplot(cons_sf)+ #plot a graph using cons_sf data (the entire dataset)
+  geom_sf(fill = "#d946db", color = "grey88")+ #make everything in the dataset filled in pink, with gray outlines
+  geom_sf(data = oxfordshire_sf, fill = "#3BA740", colour = "yellow")+ #add on top: oxfordshire constituencies, filled in green, with yellow outlines
+  theme_minimal() #give it a white background
+
+```
+
+### Focussing on Oxfordshire constituencies
+
+(as an example of a smaller map - ideally would include the wider places people travel from rather than just Oxfordshire)
+```{r map 2: oxfordshire, eval=TRUE}
+
+#make oxfordshire dataset into a map
+ggplot(oxfordshire_sf) + #using the oxfordshire dataset, make a plot
+  geom_sf(fill = "#3BA740", colour = "white")+ #fill everything with green, and include white outlines to constituencies
+  labs(title = "Constituencies in Oxfordshire")+ #specify title of graph
+  theme_minimal() #give it a white background
+
+
+```
+
+### ...with some details added
+
+- to show how points / locations / lines can be added: I've added my house & Dorchester Abbey & connected them.
+
+- I've added the electorate of the different constituencies to show how you can colour-code different areas
+
+- you can also overlay different maps together, which I haven't done here. For instance, I could presumably show more features of the constituencies than just the outlines
+
+```{r oxfordshire map with detail, fig.height = 6*1.5, fig.width = 7*1.5}
+
+#enter here some fancy coding to make the names of constituencies appear
+oxfordshire_sf$centroid <- st_centroid(oxfordshire_sf$geometry) #add a column called 'centroid' to our oxfordshire dataset. this column should contain the information about the location of the center of each constituency. We're telling R to calculate these centre locations, using the readymade function st_centroid() and the 'geometry' column that is already in our dataset 
+
+centroids <- st_coordinates(oxfordshire_sf$centroid) #make a new data column called centroids. we want it to contain the coordinates of the centroids, which it should obtain from the centroid column we just made before. R will work out the coordinates by using the function st_coordinates()
+oxfordshire_sf <- cbind (oxfordshire_sf, centroids) #add the centroids data object we just made to the oxfordshire dataset: now we know the coordinates of the centre of each constituency, so that we can position the constituency names in the middle of each constituency.
+
+#create a new dataset with an added column of names, so the longest names can have line breaks incorporated when we make our plot = looks nicer
+oxfordshire_sf_named<-oxfordshire_sf %>% #new dataset is called oxfordshire_sf_named, which starts off as being a copy of oxfordshire_sf
+  mutate(name = case_when( #change some parts of the new dataset, if:
+    PCON24NM == "Bicester and Woodstock" ~ "Bicester and\nWoodstock",  #if the name is Bicester and Woodstock, change the name to Bicester and \nWoodstock
+      #\n indicates a line break: so when we make the graph, the name will not be one very long thin line
+    PCON24NM == "Henley and Thame" ~ "Henley and \nThame", #same for this
+    PCON24NM == "Oxford West and Abingdon" ~ "Oxford West and\nAbingdon", #same for this
+    TRUE ~ PCON24NM #for all the rest of the constituencies: keep the name the same (no linebreak - because I've decided they don't need one)
+  ))
+
+#adding dorchester abbey & laura's house
+interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+  Location = c("Dorchester Abbey", "Laura's house"), #it should have a column called location, with dorchester abbey & laura's house as rows
+  lat = c(51.646301, 51.741770), #it should have a column called lat, with these values (latitude - found on google)
+  lon = c(-1.167200, -1.258005) #it should have a column called lon, with these values (longitude - found on google)
+)
+
+#turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to mak e the dataset into a map
+interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+
+#convert interest points to same crs as base map otherwise all R-hell breaks loose apparently 
+interest_points_sf <- st_transform(interest_points_sf, st_crs(oxfordshire_sf_named))
+#interest_points_sf
+
+#make a table of just the relevant coordinates of the interest points to add the points to the map
+interest_points_coords <- st_coordinates(interest_points_sf) #new table has the coordinates we just put into our interest_points_sf file; but specifically just as numbers rather than some cryptic coding language thing
+#interest_points_coords
+
+#lets add electorate to the dataframe oxfordshire_sf_named for fun! yay
+Electorate <- c(69943, 70389, 74356,70626,72371,72004,70042) #make a new table with the electorate, listed in the same order as the constituencies appear in the table (alphabetically). this data comes from wikipedia
+oxfordshire_sf_named <- cbind(oxfordshire_sf_named, Electorate) #join on the electorate as a column to our master oxfordshire dataset
+
+#define laura's journey distance as the crow flies
+journey_line_laura <- st_sfc(st_linestring(interest_points_coords)) #tell it to make a line, using the coordinates of the two points, from our coordinates table
+#reassure R that the line has the same CRS as the other datasets (because we already converted it to the right crs before extracting the coordinates)
+journey_line_laura <- st_set_crs(journey_line_laura, st_crs(oxfordshire_sf_named))
+
+```
+
+Now we've done all the set up, we can code the plot:
+
+```{r big lovely plot, fig.height = 6*1.5, fig.width = 7*1.5}
+
+#big lovely plot
+ggplot(oxfordshire_sf_named) + #make a plot, using data from oxfordshire_sf_named
+  
+  geom_sf(aes(fill = Electorate), color = "white")+ #colour fill the constituencies based on the electorate values, and give them white boundaries
+  
+  scale_fill_continuous(name = "Electorate", high = "#8788ab", low = "#cacbdf")+ #higher electorate values should be darker purple, lower values should be lighter purple
+  
+  geom_text(aes(x=X, y=Y, label = name), size = 3, colour = "black", nudge_y=+2500, nudge_x=-1500)+ #add the constituency names, using the 'name' column we added (has the line breaks we want). put them text size 3, black text, and move them a bit up & left (so they don't all overlap other text)
+  
+  geom_point(data = interest_points_sf, aes(x = interest_points_coords[,1], y = interest_points_coords[,2]), colour = "#770088", size = 3, pch = 19) + #add our points of interest, with size 3 purple dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
+  
+  geom_label(data = interest_points_sf, aes(x=interest_points_coords[,1], y = interest_points_coords[,2], label = Location), size = 3, nudge_y = -1300, nudge_x = 3500, colour = "#770088", label.padding = unit(0.1, "lines"), label.size=0, alpha = 0.5)+ #add names to the locations: names should be the 'Location' column from the data table interest_points_sf, using the same coordinates as the points (from the coordinates data interest_points_coords). don't put lines round the outside of labels, make the labels a bit transparent, and move them down and right a bit so they don't overlap the actual points
+  
+  labs(title = "Laura's journey (as the crow flies)", x="", y="")+ #add a title, and take away the x and y axis names - otherwise it just says X and Y
+  
+  theme_minimal()+ #white background
+  
+  geom_sf(data=journey_line_laura, colour="red", size = 1) #add the line between the points: from the line dataset we specified; make it size 1, and red.
+
+
+```
+
+### Some thoughts
+
+- the general gist is you can customise almost everything about them
+
+- There's a lot more information online about this type of coding so I can look into other ways I could add to this that would be relevant to us
+
+- I can also look for data with more relevant/detailed information than the constituencies dataset I've used here
+ 
+- I don't like how the constituency names appear.. that's a work in progress! They're unreasonably fiddly to move around
+
+<!-- **REMOVED GRAPHS** 
+
+1. an attempt to move one label down a bit - worked but duplicated the name so it was on there twice.
+ggplot(oxfordshire_sf_named) +
+geom_sf(fill = "#3BA740", colour = "white")+
+geom_text(aes(x=X, y=Y, label = name), size = 3, colour = "black")+
+geom_text(data = oxfordshire_sf_named %>% filter(name == "Oxford West and\nAbingdon"),
+aes(x = X, y = Y - 2500, label = name),  
+size = 3, colour = "red")+
+labs(title = "Constituencies in Oxfordshire")+
+theme_minimal()
+
+#trying to move it down - didn't work
+ggplot(oxfordshire_sf_named) +
+  geom_sf(fill = "#3BA740", colour = "white") +  # Base map
+  geom_text(aes(x = X, y = Y, label = name), size = 3, colour = "black") +  # Original labels in black
+  # Adjust label for "Bicester and Woodstock" using mutate or case_when in the aes
+  geom_text(aes(x = X, y = ifelse(name == "Bicester and Woodstock", Y - 1, Y),  # Move down for "Bicester and Woodstock"
+                label = name), 
+            size = 3, colour = ifelse(oxfordshire_sf_named$name == "Bicester and Woodstock", "red", "black"))  # Change color conditionally
+
+#trying to have the graph without the original label for oxford west and abingdon, so it could be added after. but it didn't work.
+ggplot(oxfordshire_sf_named) +
+  geom_sf(fill = "#3BA740", colour = "white")+
+  geom_text(data = oxfordshire_sf_named %>% filter(name != "Oxford West and Abingdon"), aes(x=X, y=Y, label = name), size = 2, colour = "black")+
+  labs(title = "Constituencies in Oxfordshire")+
+  theme_minimal()
+  
+##attempt to change the coordinates of the centroid - didn't work - chatgpt was not referring to the centroid coordinate in the right way. we got closer but i'm fed up
+
+oxfordshire_sf_named_adjusted <- oxfordshire_sf_named %>%
+  mutate(Y_centroid = ifelse(name == "Oxford West and Abingdon", Y_centroid - 2500, Y_centroid)  # Adjust Y for Oxford West and Abingdon
+  )
+
+oxfordshire_sf_named_adjusted %>%
+  filter(name == "Oxford West and\nAbingdon") %>%
+  select(name, Y)
+
+head(oxfordshire_sf_named)
+
+ggplot(oxfordshire_sf_named_adjusted) +
+  geom_sf(fill = "#3BA740", colour = "white")+
+  geom_text(aes(x=X, y=Y, label = name), size = 2, colour = "black")+
+  labs(title = "Constituencies in Oxfordshire")+
+  theme_minimal()
+
+-->
+
+
+
