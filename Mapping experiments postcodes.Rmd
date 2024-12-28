@@ -34,61 +34,60 @@ install.packages("sf")
 
 - **'UK postcode boundary polygons'** from the **Open Door Logistics** website, which is described as 'reconstructed UK postcode polygons (January 2015) in Shapefile format'. There may be some terms and conditions to using this data that we need to be aware of.
 
-- **'Lower layer Super Output Areas (December 2021) Boundaries EW BSC (V4)'** from the **Office for National Statistics Open Geography Portal**. This contains digital vector boundaries for Lower layer Super Output Areas in England and Wales, as at 21 March 2021.
+- **'Indices of Multiple Deprivation'** from the **UK Government via Communities Open Data**, as part of the ArcGis Community Hub. This contains the indices of multiple deprivation as shapefiles.
 
-```{r load packages & data, include=FALSE}
+- **'Code-point open'** from the **Ordinance Survey Data Hub**, which contains extra details of postcodes, not as shapefiles but as a csv datatable. 
+
+```{r load packages & data, subset data include=FALSE}
 #load packages
 library(tidyverse)
 library(sf)
 library(dplyr)
 library(stringr)
 
-#load data
-#1: unzip the data - unpack it from the format it was downloaded to my computer in. we made it a special file within the 'data' file of the Project
-unzip("data/postcode_boundary_data/UK-postcode-boundaries-Jan-2015.zip")
-unzip("data/LSOAs_2021/Lower_layer_Super_Output_Areas_December_2021_Boundaries_EW_BSC_V4_-5236167991066794441)"
-
-
-#now we know the file name: load the data into R, and call it 'cons_sf'
-postcodes_sf<-read_sf("data/postcode_boundary_data/Distribution/Sectors.shp")
-lsoas_sf<-read_sf("data/LSOAs_2021/LSOA_2021_EW_BSC_V4.shp")
-
+#load the data into R, and name it
+postcodes_sf<-read_sf("data/postcode_boundary_data/Distribution/Sectors.shp") #this is postcode sector info
+multdep<-read_sf("data/multdep_2019/Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
 
 #have a look at it 
-postcodes_sf
-head(lsoas_sf)
-unique(oxford_lsoas_sf$LSOA21NM)
+head(postcodes_sf)
+head(multdep)
 
+#subset the postcodes data for oxfordshire:
+  ## Use dplyr and stringr to filter the postcodes data for rows with oxford postcodes: aka observations with 'OX' in them
+oxford_postcodes_sf <- postcodes_sf%>%
+  filter(str_detect(name, regex("OX", ignore_case = TRUE)))
+#check it worked
+unique(oxford_postcodes_sf)
 
-# Use dplyr and stringr to filter rows containing 'oxford'
-oxford_lsoas_sf <- lsoas_sf %>%
-  filter(str_detect(LSOA21NM, regex("oxford|vale of white horse|cherwell", ignore_case = TRUE)))
+#subset the IMD data for oxfordshire:
+oxonly_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell", ignore_case = TRUE)))
+#check it worked
+unique(oxonly_multdep$LADnm)
 
-unique(lsoas_sf)
+#subset the IMD data for a larger subset (WIP):
+ox_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell|south buckingham|chiltern|wycombe|aylesbury vale|eastleigh|east hampshire|basingstoke and deane|fareham|gosport|^hart$|havant|New forest|portsmouth|rushmoor|southampton|test valley|winchester", ignore_case = TRUE)))
+#check it worked
+unique(ox_multdep$LADnm)
+
+#testing testing 123
 
 ```
 
-### Graph of all UK constituencies (all the data)
+### Initial graphs using IMD data
 
-- I have chosen these colours - can be changed etc.
+```{r initial maps, eval=TRUE}
 
-- Oxfordshire is in green
-
-```{r map 1: everything, eval=TRUE}
-
-#make a new dataset that is a subset of the entire dataset - containing only oxfordshire constituencies. we will call it 'oxfordshire_sf'
-cons_sf %>%
-  filter(PCON24NM %in% c("Banbury", "Bicester and Woodstock", "Didcot and Wantage", "Henley and Thame", "Oxford East", "Oxford West and Abingdon", "Witney")) -> oxfordshire_sf
-
-#plot the entire dataset, with oxfordshire in green: 
-plot <- ggplot(oxford_lsoas_sf)+ #plot a graph using cons_sf data (the entire dataset)
-  geom_sf(fill = "#d946db", color = "grey88")+
+#plot for the strictly oxfordshire IMD area
+plot <- ggplot(oxonly_multdep)+ 
+  geom_sf(aes(fill = oxonly_multdep$IMD_Decile), colour = NA)+ #colour the IMD shapes based on IMD value, and don't give them a border
+  scale_fill_continuous(name = "Index of Multiple Deprivation, 2019", type = "viridis", direction = -1)+ #IMD fill should be given a name; filled using the colour palette 'viridis', but so that high values are darker and low values are lighter: this is opposite to how it is usually applied, hence use direction = -1
+  geom_sf(data=oxford_postcodes_sf, colour = "white", alpha=0.1)+ #add postcode sectors on top, in white outline
     theme_minimal()
 print(plot)
 
-#make everything in the dataset filled in pink, with gray outlines
-  geom_sf(data = oxfordshire_sf, fill = "#3BA740", colour = "yellow")+ #add on top: oxfordshire constituencies, filled in green, with yellow outlines
- #give it a white background
 
 ```
 
