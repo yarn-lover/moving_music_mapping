@@ -72,7 +72,6 @@ ox_multdep<-multdep %>%
 #check it worked
 unique(ox_multdep$LADnm)
 
-#testing testing 123
 
 ```
 
@@ -85,8 +84,34 @@ plot <- ggplot(oxonly_multdep)+
   geom_sf(aes(fill = oxonly_multdep$IMD_Decile), colour = NA)+ #colour the IMD shapes based on IMD value, and don't give them a border
   scale_fill_continuous(name = "Index of Multiple Deprivation, 2019", type = "viridis", direction = -1)+ #IMD fill should be given a name; filled using the colour palette 'viridis', but so that high values are darker and low values are lighter: this is opposite to how it is usually applied, hence use direction = -1
   geom_sf(data=oxford_postcodes_sf, colour = "white", alpha=0.1)+ #add postcode sectors on top, in white outline
-    theme_minimal()
+    theme_minimal()+
+  geom_point(data = interest_points_sf, aes(x = interest_points_coords[,1], y = interest_points_coords[,2]), colour = "#770088", size = 3, pch = 19) + #add our points of interest, with size 3 purple dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
+  
+  geom_label(data = interest_points_sf, aes(x=interest_points_coords[,1], y = interest_points_coords[,2], label = Location), size = 3, nudge_y = -1300, nudge_x = 3500, colour = "#770088", label.padding = unit(0.1, "lines"), label.size=0, alpha = 0.5) #add names to the locations: names should be the 'Location' column from the data table interest_points_sf, using the same coordinates as the points (from the coordinates data interest_points_coords). don't put lines round the outside of labels, make the labels a bit transparent, and move them down and right a bit so they don't overlap the actual points
 print(plot)
+
+
+st_crs(multdep)
+postcodes_sf <- st_transform(postcodes_sf, st_crs(multdep))
+
+#adding dorchester abbey & laura's house
+interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+  Location = c("Dorchester Abbey", "Laura's house"), #it should have a column called location, with dorchester abbey & laura's house as rows
+  lat = c(51.646301, 51.741770), #it should have a column called lat, with these values (latitude - found on google)
+  lon = c(-1.167200, -1.258005) #it should have a column called lon, with these values (longitude - found on google)
+)
+
+#turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to mak e the dataset into a map
+interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+
+#convert interest points to same crs as base map otherwise all R-hell breaks loose apparently 
+interest_points_sf <- st_transform(interest_points_sf, st_crs(multdep))
+#interest_points_sf
+
+#make a table of just the relevant coordinates of the interest points to add the points to the map
+interest_points_coords <- st_coordinates(interest_points_sf) #new table has the coordinates we just put into our interest_points_sf file; but specifically just as numbers rather than some cryptic coding language thing
+#interest_points_coords
 
 
 ```
