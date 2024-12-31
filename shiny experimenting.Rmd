@@ -59,6 +59,7 @@ multdep <- st_read(multdep_path)
 postcodes_sf_path <- here ("data", "postcode_boundary_data", "Distribution", "Sectors.shp")
 postcodes_sf<-st_read(postcodes_sf_path) #this is postcode sector info
 
+
 #have a look at it 
 head(postcodes_sf)
 head(multdep)
