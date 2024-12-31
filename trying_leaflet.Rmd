@@ -1,0 +1,67 @@
+---
+title: "Investigating using Shiny to make interactive maps"
+author: "Laura Flenley"
+date: "2024-12-31"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, echo = TRUE)
+
+```
+
+```{r load packages & data subset data, include=FALSE}
+#load packages
+install.packages("leaflet")
+library(tidyverse)
+library(sf)
+library(dplyr)
+library(stringr)
+library(shiny)
+library(plotly)
+library(here)
+library(leaflet)
+
+#define paths to files: necessary because shiny may change the working directory. then load the data
+multdep_path <- here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
+multdep <- st_read(multdep_path)
+
+postcodes_sf_path <- here ("data", "postcode_boundary_data", "Distribution", "Sectors.shp")
+postcodes_sf<-st_read(postcodes_sf_path) #this is postcode sector info
+
+#subset the postcodes data for oxfordshire:
+  ## Use dplyr and stringr to filter the postcodes data for rows with oxford postcodes: aka observations with 'OX' in them
+oxford_postcodes_sf <- postcodes_sf%>%
+  filter(str_detect(name, regex("OX", ignore_case = TRUE)))
+#check it worked
+unique(oxford_postcodes_sf)
+
+#subset the IMD data for oxfordshire:
+oxonly_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell", ignore_case = TRUE)))
+#check it worked
+unique(oxonly_multdep$LADnm)
+
+#subset the IMD data for a larger subset (WIP):
+ox_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell|south buckingham|chiltern|wycombe|aylesbury vale|eastleigh|east hampshire|basingstoke and deane|fareham|gosport|^hart$|havant|New forest|portsmouth|rushmoor|southampton|test valley|winchester", ignore_case = TRUE)))
+#check it worked
+unique(ox_multdep$LADnm)
+
+#convert postcodes_sf to the same crs as multdep dataset
+st_crs(multdep)
+postcodes_sf <- st_transform(postcodes_sf, st_crs(multdep))
+
+```
+
+```{r leaflet experiments}
+# Create the leaflet map
+leaflet(ox_multdep) %>%
+  addTiles() %>%  # Add default OpenStreetMap tiles
+  addSfLayers()  # Automatically add your sf object to the map
+
+
+```
+
+
