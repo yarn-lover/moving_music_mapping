@@ -1,19 +1,31 @@
 ---
-title: "Investigating adding postcodes to maps"
+title: "Investigating using Shiny to make interactive maps"
 author: "Laura Flenley"
-date: "2024-12-27"
+date: "2024-12-31"
 output: html_document
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(include = TRUE, echo = TRUE, warnings = FALSE)
+knitr::opts_chunk$set(include = TRUE, echo = TRUE)
 # Set working directory to the root of the project
-knitr::opts_knit$set(root.dir = here())  # This ensures the root directory is consistent throughout the document
+library(here)
+
 
 #include = TRUE: means that any outputs or graphs produced from the code will be shown in the final document
 #echo = FALSE: means that the code used to produce the outputs will not be printed in the final document 
 
 #chunk summary: in general throughout the document, code outputs will be shown, but not the code used to produce them: unless specified otherwise in a specific chunk
+```
+
+```{r debug_paths, echo=TRUE}
+# Debugging the resolved paths during knitting
+print(here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp"))
+print(here("data", "postcode_boundary_data", "Distribution", "Sectors.shp"))
+
+# Check if the files exist during knitting
+print(file.exists(here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp")))
+print(file.exists(here("data", "postcode_boundary_data", "Distribution", "Sectors.shp")))
 ```
 
 <!--### 1. Install packages--> 
@@ -24,6 +36,7 @@ install.packages("tidyverse")
 install.packages("sf")
 install.packages("shiny")
 install.packages("plotly")
+install.packages("here")
 
 #this code will not run unless you change 'eval = TRUE' in the chunk setup: because I already have the packages installed on my computer, so I do not need to install them each time I run the code. They are included so that anyone else looking to run this code can install the packages if they do not have them installed already.
 
@@ -51,10 +64,18 @@ library(dplyr)
 library(stringr)
 library(shiny)
 library(plotly)
+library(here)
 
-#load the data into R, and name it
-postcodes_sf<-read_sf("data/postcode_boundary_data/Distribution/Sectors.shp") #this is postcode sector info
-multdep<-read_sf("data/multdep_2019/Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
+#define paths to files: necessary because shiny may change the working directory. then load the data
+multdep_path <- here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
+multdep <- st_read(multdep_path)
+
+postcodes_sf_path <- here ("data", "postcode_boundary_data", "Distribution", "Sectors.shp")
+postcodes_sf<-st_read(postcodes_sf_path) #this is postcode sector info
+
+print(multdep_path)
+print(postcodes_sf_path)
+
 
 #have a look at it 
 head(postcodes_sf)
@@ -127,6 +148,63 @@ labs(title = "Oxfordshire", x="", y="") #add a title, and take away the x and y 
 print(plot_experiment)
 
 
+
+```
+
+Trying to create the same map but interactive ?!
+
+```{r interactive map}
+
+# Shiny app code
+ui <- fluidPage(#set up a user interface that will fit the page of whoever is viewing it
+  titlePanel("Interactive Zoomable Map"),
+  sidebarLayout(
+    sidebarPanel(
+      helpText("Use the zoom tools to explore the map.")
+    ),
+    mainPanel(
+      plotlyOutput("interactive_map")  # Output for the interactive map
+    )
+  )
+)
+
+server <- function(input, output) {
+  # Ensure working directory is set correctly
+  setwd(here())  # Reset working directory to the root of the project
+  
+  # Create a ggplot object (plot_experiment) using the data, example shown here:
+  plot_experiment <- ggplot() +
+    geom_sf(data = multdep) +  # Plot the multdep shapefile
+    geom_sf(data = postcodes_sf, fill = "transparent", color = "blue")  # Plot the postcodes shapefile on top
+  
+  # Render the interactive Plotly map
+  output$interactive_map <- renderPlotly({
+    ggplotly(plot_experiment)  # Convert ggplot map to interactive Plotly map
+  })
+}
+
+
+# Run the Shiny app
+shinyApp(ui = ui, server = server)
+
+ggplotly(plot_experiment)
+
+
+```
+
+```{r}
+# Attempt a simple ggplot with your sf data
+library(ggplot2)
+library(sf)
+
+multdep <- st_read(multdep_path)
+postcodes_sf <- st_read(postcodes_sf_path)
+
+# Try plotting the sf object directly
+test <- ggplot() +
+  geom_sf(data = multdep) + 
+  ggtitle("Simple ggplot with sf data")
+print(test)
 
 ```
 

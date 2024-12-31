@@ -141,15 +141,10 @@ Trying to create the same map but interactive ?!
 # Shiny app code
 ui <- fluidPage(#set up a user interface that will fit the page of whoever is viewing it
   titlePanel("Interactive Zoomable Map"),
-  sidebarLayout(
-    sidebarPanel(
-      helpText("Use the zoom tools to explore the map.")
-    ),
     mainPanel(
       plotlyOutput("interactive_map")  # Output for the interactive map
     )
   )
-)
 
 server <- function(input, output) {
   output$interactive_map <- renderPlotly({
@@ -163,4 +158,3 @@ shinyApp(ui = ui, server = server)
 
 
 ```
-
