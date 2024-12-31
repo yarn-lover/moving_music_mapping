@@ -13,7 +13,7 @@ knitr::opts_chunk$set(include = TRUE, echo = TRUE)
 
 ```{r load packages & data subset data, include=FALSE}
 #load packages
-install.packages("leaflet")
+
 library(tidyverse)
 library(sf)
 library(dplyr)
@@ -22,13 +22,17 @@ library(shiny)
 library(plotly)
 library(here)
 library(leaflet)
+library(RColorBrewer)
 
 #define paths to files: necessary because shiny may change the working directory. then load the data
 multdep_path <- here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
 multdep <- st_read(multdep_path)
+#change crs to one leaflet can use: 4326
+multdep <- st_transform(multdep, crs = 4326)
 
 postcodes_sf_path <- here ("data", "postcode_boundary_data", "Distribution", "Sectors.shp")
 postcodes_sf<-st_read(postcodes_sf_path) #this is postcode sector info
+postcodes_sf <- st_transform(postcodes_sf, crs = 4326)
 
 #subset the postcodes data for oxfordshire:
   ## Use dplyr and stringr to filter the postcodes data for rows with oxford postcodes: aka observations with 'OX' in them
@@ -49,18 +53,70 @@ ox_multdep<-multdep %>%
 #check it worked
 unique(ox_multdep$LADnm)
 
-#convert postcodes_sf to the same crs as multdep dataset
-st_crs(multdep)
-postcodes_sf <- st_transform(postcodes_sf, st_crs(multdep))
+#adding dorchester abbey & laura's house
+interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+  Location = c("Dorchester Abbey", "Laura's house"), #it should have a column called location, with dorchester abbey & laura's house as rows
+  lat = c(51.646301, 51.741770), #it should have a column called lat, with these values (latitude - found on google)
+  lon = c(-1.167200, -1.258005), #it should have a column called lon, with these values (longitude - found on google)
+  colour = c("red", "yellow") #should have column called colour, with these values
+)
+
+#turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to mak e the dataset into a map
+interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+
+#convert interest points to same crs as base map otherwise all R-hell breaks loose apparently 
+interest_points_sf <- st_transform(interest_points_sf, st_crs(multdep))
+interest_points_sf
+
+#make a table of just the relevant coordinates of the interest points to add the points to the map
+interest_points_coords <- st_coordinates(interest_points_sf)
 
 ```
 
 ```{r leaflet experiments}
-# Create the leaflet map
-leaflet(ox_multdep) %>%
-  addTiles() %>%  # Add default OpenStreetMap tiles
-  addSfLayers()  # Automatically add your sf object to the map
 
+# Create a leaflet map
+leaflet() %>%
+  
+  # Add polygons for IMD values
+  addPolygons(data = oxonly_multdep, 
+              fillColor = ~colorNumeric(palette = "viridis", domain = oxonly_multdep$IMD_Decile)(IMD_Decile),
+              fillOpacity = 0.6, 
+              weight = 0, # No border
+              popup = ~paste("IMD Decile:", IMD_Decile)) %>%
+  
+  # Add postcode polygons with white border
+  addPolygons(data = oxford_postcodes_sf, 
+              color = "white", 
+              opacity = 0.75, 
+              weight = 0.6,
+              fillOpacity = 0) %>%
+  
+  addProviderTiles(providers$CartoDB.VoyagerOnlyLabels)%>%
+  
+  # Add points of interest (using coordinates and the specified color)
+  addCircleMarkers(data = interest_points_sf, 
+                   lng = ~interest_points_coords[,1], 
+                   lat = ~interest_points_coords[,2], 
+                   color = ~colour, 
+                   radius = 6, 
+                   fillOpacity = 1, 
+                   popup = ~Location) %>%
+  
+  # Add labels to points
+  addLabelOnlyMarkers(data = interest_points_sf,
+                      lng = ~interest_points_coords[,1], 
+                      lat = ~interest_points_coords[,2],
+                      label = ~Location, 
+                      labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, direction = "top", 
+                                                  style = list("color" = "black", "font-weight" = "normal", "font-size" = "12px"))) %>%
+  addProviderTiles(providers$Stamen.TonerLabels) %>%
+  # Set the view and zoom level
+  setView(lng = -1.258, lat = 51.75, zoom = 10) %>%
+  
+  # Add a title (use HTML for the title)
+  addControl(position = "topright", html = "<h3>Oxfordshire</h3>")
 
 ```
 
