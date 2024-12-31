@@ -1,0 +1,165 @@
+---
+title: "Investigating using Shiny to make interactive maps"
+author: "Laura Flenley"
+date: "2024-12-31"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, echo = TRUE)
+#include = TRUE: means that any outputs or graphs produced from the code will be shown in the final document
+#echo = FALSE: means that the code used to produce the outputs will not be printed in the final document 
+
+#chunk summary: in general throughout the document, code outputs will be shown, but not the code used to produce them: unless specified otherwise in a specific chunk
+```
+
+<!--### 1. Install packages--> 
+
+```{r install packages, eval = FALSE}
+#code for installing packages
+install.packages("tidyverse")
+install.packages("sf")
+install.packages("shiny")
+install.packages("plotly")
+install.packages("here")
+
+#this code will not run unless you change 'eval = TRUE' in the chunk setup: because I already have the packages installed on my computer, so I do not need to install them each time I run the code. They are included so that anyone else looking to run this code can install the packages if they do not have them installed already.
+
+#Packages are collections of code instructions that someone else has helpfully made, that make it easier to do particular things - like a shortcut. I will use the 'tidyverse' package (has code for plotting graphs) and 'sf' package (has code for making maps alongside the tidyverse package).
+
+#Packages need to be 'installed' (aka downloaded) onto a computer once, but not a second time. 
+
+```
+
+<!-- ### 2.  Load packages and data -->
+
+**Dataset / Map data:** I have downloaded some datasets: 
+
+- **'UK postcode boundary polygons'** from the **Open Door Logistics** website, which is described as 'reconstructed UK postcode polygons (January 2015) in Shapefile format'. There may be some terms and conditions to using this data that we need to be aware of.
+
+- **'Indices of Multiple Deprivation'** from the **UK Government via Communities Open Data**, as part of the ArcGis Community Hub. This contains the indices of multiple deprivation as shapefiles.
+
+- **'Code-point open'** from the **Ordinance Survey Data Hub**, which contains extra details of postcodes, not as shapefiles but as a csv datatable. 
+
+```{r load packages & data subset data, include=FALSE}
+#load packages
+library(tidyverse)
+library(sf)
+library(dplyr)
+library(stringr)
+library(shiny)
+library(plotly)
+library(here)
+
+#define paths to files: necessary because shiny may change the working directory. then load the data
+multdep_path <- here("data", "multdep_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019", "Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
+multdep <- st_read(multdep_path)
+
+postcodes_sf_path <- here ("data", "postcode_boundary_data", "Distribution", "Sectors.shp")
+postcodes_sf<-st_read(postcodes_sf_path) #this is postcode sector info
+
+#have a look at it 
+head(postcodes_sf)
+head(multdep)
+
+#subset the postcodes data for oxfordshire:
+  ## Use dplyr and stringr to filter the postcodes data for rows with oxford postcodes: aka observations with 'OX' in them
+oxford_postcodes_sf <- postcodes_sf%>%
+  filter(str_detect(name, regex("OX", ignore_case = TRUE)))
+#check it worked
+unique(oxford_postcodes_sf)
+
+#subset the IMD data for oxfordshire:
+oxonly_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell", ignore_case = TRUE)))
+#check it worked
+unique(oxonly_multdep$LADnm)
+
+#subset the IMD data for a larger subset (WIP):
+ox_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell|south buckingham|chiltern|wycombe|aylesbury vale|eastleigh|east hampshire|basingstoke and deane|fareham|gosport|^hart$|havant|New forest|portsmouth|rushmoor|southampton|test valley|winchester", ignore_case = TRUE)))
+#check it worked
+unique(ox_multdep$LADnm)
+
+#convert postcodes_sf to the same crs as multdep dataset
+st_crs(multdep)
+postcodes_sf <- st_transform(postcodes_sf, st_crs(multdep))
+
+```
+
+### Add interest points: create a dataset
+
+```{r interest points}
+#adding dorchester abbey & laura's house
+interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+  Location = c("Dorchester Abbey", "Laura's house"), #it should have a column called location, with dorchester abbey & laura's house as rows
+  lat = c(51.646301, 51.741770), #it should have a column called lat, with these values (latitude - found on google)
+  lon = c(-1.167200, -1.258005), #it should have a column called lon, with these values (longitude - found on google)
+  colour = c("red", "yellow") #should have column called colour, with these values
+)
+
+#turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to mak e the dataset into a map
+interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+
+#convert interest points to same crs as base map otherwise all R-hell breaks loose apparently 
+interest_points_sf <- st_transform(interest_points_sf, st_crs(multdep))
+interest_points_sf
+
+#make a table of just the relevant coordinates of the interest points to add the points to the map
+interest_points_coords <- st_coordinates(interest_points_sf) #new table has the coordinates we just put into our interest_points_sf file; but specifically just as numbers rather than some cryptic coding language thing
+#interest_points_coords
+```
+
+### Initial graphs using IMD data
+
+```{r initial maps, eval=TRUE}
+
+#plot for the strictly oxfordshire IMD area
+plot_experiment <- ggplot(oxonly_multdep)+ 
+  geom_sf(aes(fill = oxonly_multdep$IMD_Decile), colour = NA)+ #colour the IMD shapes based on IMD value, and don't give them a border
+  scale_fill_continuous(name = "Index of Multiple Deprivation, 2019", type = "viridis", direction = -1)+ #IMD fill should be given a name; filled using the colour palette 'viridis', but so that high values are darker and low values are lighter: this is opposite to how it is usually applied, hence use direction = -1
+  geom_sf(data=oxford_postcodes_sf, colour = "white", alpha=0.1)+ #add postcode sectors on top, in white outline
+    theme_minimal()+
+  geom_point(data = interest_points_sf, aes(x = interest_points_coords[,1], y = interest_points_coords[,2], colour = colour), size = 3, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
+  scale_colour_identity()+#ensures the colour of the interest points dots is exactly the same as the colour stated in our table
+  
+  geom_label(data = interest_points_sf, aes(x=interest_points_coords[,1], y = interest_points_coords[,2], label = Location), size = 3, nudge_y = -6000, nudge_x = 14000, colour = "#770088", label.padding = unit(0.1, "lines"), label.size=0, alpha = 0.5) + #add names to the locations: names should be the 'Location' column from the data table interest_points_sf, using the same coordinates as the points (from the coordinates data interest_points_coords). don't put lines round the outside of labels, make the labels a bit transparent, and move them down and right a bit so they don't overlap the actual points
+labs(title = "Oxfordshire", x="", y="") #add a title, and take away the x and y axis names - otherwise it just says X and Y
+print(plot_experiment)
+
+
+
+```
+
+Trying to create the same map but interactive ?!
+
+```{r interactive map}
+
+# Shiny app code
+ui <- fluidPage(#set up a user interface that will fit the page of whoever is viewing it
+  titlePanel("Interactive Zoomable Map"),
+  sidebarLayout(
+    sidebarPanel(
+      helpText("Use the zoom tools to explore the map.")
+    ),
+    mainPanel(
+      plotlyOutput("interactive_map")  # Output for the interactive map
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$interactive_map <- renderPlotly({
+    ggplotly(plot_experiment)  # Convert ggplot map to interactive plotly map
+  })
+}
+
+# Run the Shiny app
+shinyApp(ui = ui, server = server)
+
+
+
+```
+
