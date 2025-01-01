@@ -1,0 +1,38 @@
+postcode_full_raw,date,postcode_district_assigned,settlement_name,county,LSOA,vague_area_raw,no_people,group,concert_time,postcode_sector_assigned,assumed_postcode_district,assumed_postcode_sector,notes,postcode_start
+OX14 2EY,2024_11_28,OX14,,oxfordshire,,,,,,OX14 2,N,N,,ox
+OX14 2NN,2024_11_28,OX14,,oxfordshire,,,,,,OX14 2,N,N,,ox
+OX14 1SF,2024_11_28,OX14,,oxfordshire,,,,,,OX14 1,N,N,,ox
+OX14 1ND,2024_11_28,OX14,,oxfordshire,,,,,,OX14 1,N,N,,ox
+OX14 5NH,2024_11_28,OX14,,oxfordshire,,,,,,OX14 5,N,N,,ox
+,2024_11_28,OX14,,oxfordshire,,abingdon,5,,,OX14 1,Y,Y,,ox
+SP10 2HB,2024_11_28,SP10,,hampshire,,andover,,,,SP10 2,N,N,,sp
+,2024_11_28,HP20,,buckinghamshire,,aylesbury,,,,HP20 2,Y,Y,,hp
+,2024_11_28,HP9,,buckinghamshire,,beaconsfield,,,,HP9 1,Y,Y,,hp
+,2024_11_28,OX26,,oxfordshire,,bicester,,,,OX26 4,Y,Y,,ox
+OX10 6SF,2024_11_28,OX10,,oxfordshire,,benson,,,,OX10 6,N,N,,ox
+OX10 7JE,2024_11_28,OX10,,oxfordshire,,dorchester,,,,OX10 7,N,N,,ox
+OX10 7LB,2024_11_28,OX10,,oxfordshire,,,,,,OX10 7,N,N,,ox
+SN7 7UY,2024_11_28,SN7,,oxfordshire,,faringdon,,,,SN7 7,N,N,,sn
+,2024_11_28,OX12,,oxfordshire,,grove,,,,OX12 7,Y,Y,,ox
+OX12 0BP,2024_11_28,OX12,,oxfordshire,,,,,,OX12 0,N,N,,ox
+,2024_11_28,RG9,,oxfordshire,,henley,,,,RG9 1,Y,Y,,rg
+,2024_11_28,OX1 5,,oxfordshire,,kennington,,,,OX1 5,Y,Y,,ox
+OX13 6GG,2024_11_28,OX13,,oxfordshire,,marcham,,,,OX13 6,N,N,,ox
+OX3 0DJ,2024_11_28,OX3,,oxfordshire,,,,,,OX3 0,N,N,,ox
+OX3 8LP,2024_11_28,OX3,,oxfordshire,,,,,,OX3 8,N,N,,ox
+OX2 7AP,2024_11_28,OX2,,oxfordshire,,,,,,OX2 7,N,N,,ox
+OX2 9FW,2024_11_28,OX2,,oxfordshire,,,,,,OX2 9,N,N,,ox
+,2024_11_28,OX3,,oxfordshire,,,,,,OX3 1,N,Y,,ox
+OX1 5LY,2024_11_28,OX1,,oxfordshire,,,,,,OX1 5,N,N,,ox
+OX2 0LW,2024_11_28,OX2,,oxfordshire,,,,,,OX2 0,N,N,,ox
+,2024_11_28,OX4,,oxfordshire,,,,,,OX4 1,N,Y,,ox
+OX4 4YQ,2024_11_28,OX4,,oxfordshire,,,,,,OX4 4,N,N,,ox
+,2024_11_28,OX4,,oxfordshire,,,,,,OX4 1,N,Y,,ox
+,2024_11_28,OX4,,oxfordshire,,,,,,OX4 1,N,Y,,ox
+RG9 9ET,2024_11_28,RGH,,oxfordshire,,south oxfordshire,,,,RG9 9,N,N,,rg
+,2024_11_28,OX44,,oxfordshire,,stadhampton,,,,OX44 7,Y,Y,,ox
+OX10 9ER,2024_11_28,OX10,,oxfordshire,,wallingford,,wallingford community support service,,OX10 9,N,N,,ox
+,2024_11_28,OX12 ,,oxfordshire,,,,wantage & grove stroke support group,,OX12 7,Y,Y,assuming from grove,ox
+,2024_11_28,OX28,,oxfordshire,,witney,,,,OX28 6,Y,Y,,ox
+,2024_11_28,CV34,,warwickshire,,warwick,,,,CV34 4,Y,Y,,cv
+,2024_11_28,OX7,,oxfordshire,,,,,,OX7 5,N,Y,,ox
