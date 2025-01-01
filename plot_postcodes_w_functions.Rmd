@@ -118,3 +118,15 @@ plot2 <- plot_individual_postcodes_names(oxonly_IMD_sf, oxonly_postcodes_sf, ful
 
 ```
 
+```{r, fig.height = 6*3, fig.width = 6*3}
+
+
+#trying a smaller map
+smaller_xlim = c(-1.45, -1.08)
+smaller_ylim = c(51.58, 51.8)
+plot2 <- plot_individual_postcodes_names_villages(oxonly_IMD_sf, oxonly_postcodes_sf, full_postcodes_oxfordshire, bbox_coords, smaller_xlim, smaller_ylim)
+
+
+```
+
+

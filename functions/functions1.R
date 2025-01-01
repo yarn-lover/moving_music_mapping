@@ -98,7 +98,7 @@ plot_individual_postcodes<- function(IMD_data, postcodes_sf, concert_coords){
 }
 
 
-#4: full postcodes map, with placenames
+#4: full postcodes map, with placenames of towns & cities
 
 plot_individual_postcodes_names<- function(IMD_data, postcodes_sf, concert_coords, bbox_coords, plot_xlim, plot_ylim){
   
@@ -139,6 +139,61 @@ plot_individual_postcodes_names<- function(IMD_data, postcodes_sf, concert_coord
     geom_point(data =  concert_coords, aes(x = longitude, y = latitude), colour = "red", size = 1.5, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made, and getting the coordinates from the coordinates columns we made
     
     geom_sf(data = interest_points_sf, colour = "yellow", size = 1.5, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
+    
+    
+    # Adjust for the map's projection and ensure all layers fit properly
+    coord_sf(xlim = plot_xlim, ylim = plot_ylim) +  # Set limits to fit Oxfordshire area
+    
+    theme_minimal()+
+    
+    labs(title = "Oxfordshire", x="", y="") #add a title, and take away the x and y axis names - otherwise it just says X and Y
+  
+  
+  print(plot_full_postcode)
+}
+
+
+#5: full postcodes map, with placenames of towns, cities & villages
+
+plot_individual_postcodes_names_villages<- function(IMD_data, postcodes_sf, concert_coords, bbox_coords, plot_xlim, plot_ylim){
+  
+  osm_data <- opq(bbox = bbox) %>%
+    add_osm_feature(key = "place", value = c("village", "town", "city")) %>%  # Filter for villages, towns, and cities
+    osmdata_sf()
+  
+  # Filter the data to include only places with names and of the specified types
+  places_with_names <- osm_data$osm_points[!is.na(osm_data$osm_points$name), ]
+  
+  places_with_names <- st_transform(places_with_names, crs = 4326)
+  
+  #define dorchester abbey
+  interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+    Location = c("Dorchester Abbey"), #it should have a column called location, with dorchester abbey
+    lat = c(51.646301), #it should have a column called lat, with these values (latitude - found on google)
+    lon = c(-1.167200) #it should have a column called lon, with these values (longitude - found on google)
+  )
+  
+  #turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to make the dataset into a map
+  interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+  
+  
+  plot_full_postcode <- ggplot()+ 
+    geom_sf(data = IMD_data, aes(fill = IMD_Decile), colour = NA)+ #colour the IMD shapes based on IMD value, and don't give them a border
+    scale_fill_continuous(name = "Index of Multiple Deprivation, 2019", type = "viridis", direction = -1)+ #IMD fill should be given a name; filled using the colour palette 'viridis', but so that high values are darker and low values are lighter: this is opposite to how it is usually applied, hence use direction = -1
+    geom_sf(data=postcodes_sf, colour = "white", alpha=0.1)+ #add postcode sectors on top, in white outline
+    
+    geom_label(data = places_with_names, 
+               aes(x = st_coordinates(geometry)[, 1], 
+                   y = st_coordinates(geometry)[, 2], 
+                   label = name), 
+               size = 4, nudge_y = 0.00005, nudge_x = 0.00005, 
+               colour = "black", label.padding = unit(0.1, "lines"), 
+               label.size = 0, alpha = 0.7) +
+    
+    geom_point(data =  concert_coords, aes(x = longitude, y = latitude), colour = "red", size = 3, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made, and getting the coordinates from the coordinates columns we made
+    
+    geom_sf(data = interest_points_sf, colour = "yellow", size = 3, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
     
     
     # Adjust for the map's projection and ensure all layers fit properly
