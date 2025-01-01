@@ -1,0 +1,302 @@
+---
+title: "Investigating adding postcodes to maps"
+author: "Laura Flenley"
+date: "2024-12-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, echo = TRUE, warnings = FALSE)
+# Set working directory to the root of the project
+
+
+#include = TRUE: means that any outputs or graphs produced from the code will be shown in the final document
+#echo = FALSE: means that the code used to produce the outputs will not be printed in the final document 
+
+#chunk summary: in general throughout the document, code outputs will be shown, but not the code used to produce them: unless specified otherwise in a specific chunk
+```
+
+<!--### 1. Install packages--> 
+
+```{r install packages, eval = FALSE}
+#code for installing packages
+install.packages("tidyverse")
+install.packages("sf")
+install.packages("shiny")
+install.packages("ggmap")
+install.packages("plotly")
+install.packages("osmdata")
+
+#this code will not run unless you change 'eval = TRUE' in the chunk setup: because I already have the packages installed on my computer, so I do not need to install them each time I run the code. They are included so that anyone else looking to run this code can install the packages if they do not have them installed already.
+
+#Packages are collections of code instructions that someone else has helpfully made, that make it easier to do particular things - like a shortcut. I will use the 'tidyverse' package (has code for plotting graphs) and 'sf' package (has code for making maps alongside the tidyverse package).
+
+#Packages need to be 'installed' (aka downloaded) onto a computer once, but not a second time. 
+
+```
+
+<!-- ### 2.  Load packages and data -->
+
+**Dataset / Map data:** I have downloaded some datasets: 
+
+- **'UK postcode boundary polygons'** from the **Open Door Logistics** website, which is described as 'reconstructed UK postcode polygons (January 2015) in Shapefile format'. There may be some terms and conditions to using this data that we need to be aware of.
+
+- **'Indices of Multiple Deprivation'** from the **UK Government via Communities Open Data**, as part of the ArcGis Community Hub. This contains the indices of multiple deprivation as shapefiles.
+
+- **'Code-point open'** from the **Ordinance Survey Data Hub**, which contains extra details of postcodes, not as shapefiles but as a csv datatable. 
+
+```{r load packages & data subset data, include=FALSE}
+#load packages
+library(tidyverse)
+library(sf)
+library(dplyr)
+library(stringr)
+library(osmdata)
+library(ggmap)
+
+#load the data into R, and name it
+postcodes_sf<-read_sf("data/postcode_boundary_data/Distribution/Sectors.shp") #this is postcode sector info
+multdep<-read_sf("data/multdep_2019/Indices_of_Multiple_Deprivation_(IMD)_2019/Indices_of_Multiple_Deprivation_(IMD)_2019.shp")
+
+#transform data to correct crs
+multdep <- st_transform(multdep, crs = 4326)
+postcodes_sf <- st_transform(postcodes_sf, crs = 4326)
+
+#subset the postcodes data for oxfordshire:
+  ## Use dplyr and stringr to filter the postcodes data for rows with oxford postcodes: aka observations with 'OX' in them
+oxford_postcodes_sf <- postcodes_sf%>%
+  filter(str_detect(name, regex("OX", ignore_case = TRUE)))
+#check it worked
+unique(oxford_postcodes_sf)
+
+#subset the IMD data for oxfordshire:
+oxonly_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell", ignore_case = TRUE)))
+#check it worked
+unique(oxonly_multdep$LADnm)
+
+#subset the IMD data for a larger subset (WIP):
+ox_multdep<-multdep %>%
+  filter(str_detect(LADnm, regex("oxford|vale of white horse|cherwell|south buckingham|chiltern|wycombe|aylesbury vale|eastleigh|east hampshire|basingstoke and deane|fareham|gosport|^hart$|havant|New forest|portsmouth|rushmoor|southampton|test valley|winchester", ignore_case = TRUE)))
+#check it worked
+unique(ox_multdep$LADnm)
+
+
+```
+
+### Add interest points: create a dataset
+
+```{r interest points}
+#adding dorchester abbey & laura's house
+interest_points <- data.frame( #make a new dataframe called interest_points, which will have in it:
+  Location = c("Dorchester Abbey", "Laura's house"), #it should have a column called location, with dorchester abbey & laura's house as rows
+  lat = c(51.646301, 51.741770), #it should have a column called lat, with these values (latitude - found on google)
+  lon = c(-1.167200, -1.258005), #it should have a column called lon, with these values (longitude - found on google)
+  colour = c("red", "yellow") #should have column called colour, with these values
+)
+
+#turn into a new sf object: I don't fully understand what this means, but R needs us to do this if we want to mak e the dataset into a map
+interest_points_sf <- st_as_sf(interest_points, coords = c("lon", "lat"), crs = 4326)
+  #crs = 4326 states these coordinates we've given it represent longitude & latitude on earth's surface
+
+#convert interest points to same crs as base map otherwise all R-hell breaks loose apparently 
+interest_points_sf <- st_transform(interest_points_sf, st_crs(multdep))
+interest_points_sf
+
+#make a table of just the relevant coordinates of the interest points to add the points to the map
+interest_points_coords <- st_coordinates(interest_points_sf) #new table has the coordinates we just put into our interest_points_sf file; but specifically just as numbers rather than some cryptic coding language thing
+#interest_points_coords
+```
+
+### Initial graphs using IMD data
+
+```{r initial maps, eval=TRUE}
+
+#plot for the strictly oxfordshire IMD area
+plot_experiment <- ggplot()+ 
+  geom_sf(data = oxonly_multdep, aes(fill = IMD_Decile), colour = NA)+ #colour the IMD shapes based on IMD value, and don't give them a border
+  scale_fill_continuous(name = "Index of Multiple Deprivation, 2019", type = "viridis", direction = -1)+ #IMD fill should be given a name; filled using the colour palette 'viridis', but so that high values are darker and low values are lighter: this is opposite to how it is usually applied, hence use direction = -1
+  geom_sf(data=oxford_postcodes_sf, colour = "white", alpha=0.1)+ #add postcode sectors on top, in white outline
+
+  geom_point(data = interest_points_sf, aes(x = interest_points_coords[,1], y = interest_points_coords[,2], colour = colour), size = 3, pch = 19) + #add our points of interest, colouring them by the colour stated in the interest points dataset, with size 3 dots, using the data from the table we made (interest_points_sf), and getting the coordinates from the coordinates table we made
+  scale_colour_identity()+#ensures the colour of the interest points dots is exactly the same as the colour stated in our table
+  
+  geom_label(data = interest_points_sf, aes(x=interest_points_coords[,1], y = interest_points_coords[,2], label = Location), size = 3, nudge_y = 0.03, nudge_x = 0.03, colour = "#770088", label.padding = unit(0.1, "lines"), label.size=0, alpha = 0.8) + #add names to the locations: names should be the 'Location' column from the data table interest_points_sf, using the same coordinates as the points (from the coordinates data interest_points_coords). don't put lines round the outside of labels, make the labels a bit transparent, and move them down and right a bit so they don't overlap the actual points
+
+      theme_minimal()+
+  
+labs(title = "Oxfordshire", x="", y="") #add a title, and take away the x and y axis names - otherwise it just says X and Y
+
+
+print(plot_experiment)
+
+
+```
+
+```{r graphs with Stamen base map}
+
+#tell it that we're allowed to use stadia maps (that contains stamen)
+  register_stadiamaps("7ad27703-d287-4c83-a0b1-92b6b7d7e2ea", write = FALSE)
+
+#define a base map from stadia to use under our additional map parts
+base_map <- get_stadiamap(
+
+  bbox = c(left = -1.6, bottom = 51.5, right = -0.9, top = 51.9), # Bounding box for Oxfordshire
+  zoom = 10, 
+  maptype = "stamen_toner" # Options: "toner", "watercolor", "terrain"
+)
+
+##make the plot:
+# Add the ggmap raster as the base layer
+plot_experiment <- ggmap(base_map) + 
+
+  # Add IMD polygons
+  geom_sf(data = oxonly_multdep, aes(fill = IMD_Decile), color = NA, alpha = 0.5, inherit.aes = FALSE) +
+  scale_fill_viridis_c(name = "Index of Multiple Deprivation, 2019", direction = -1) +
+
+  # Add postcode polygons
+  geom_sf(data = oxford_postcodes_sf, color = "white", alpha = 0.1, inherit.aes = FALSE) +
+
+  # Add points of interest
+  geom_point(data = interest_points_sf, 
+             aes(x = interest_points_coords[,1], y = interest_points_coords[,2], color = colour), 
+             size = 3, pch = 19, inherit.aes = FALSE) +
+  scale_colour_identity() +
+
+  # Add labels to points
+  geom_label(data = interest_points_sf, 
+             aes(x = interest_points_coords[,1], y = interest_points_coords[,2], label = Location), 
+             size = 3, nudge_y = -6000, nudge_x = 14000, color = "#770088", 
+             label.padding = unit(0.1, "lines"), label.size = 0, alpha = 0.5, inherit.aes = FALSE) +
+
+  # Add minimal theme and title
+  theme_minimal() +
+  labs(title = "Oxfordshire", x = "", y = "")
+
+print(plot_experiment)
+
+```
+```{r another basemap using OMS data for roads, eval = FALSE}
+#code chunk takes such a long time to run that I have removed it for ease when knitting document - since it's not an important map
+
+#define the area you want your map to consist of
+bbox <- c(left = -1.7, bottom = 51.5, right = -0.9, top = 52.2) # Oxfordshire bounds
+
+#obtain a new dataset from OMS, containing info on roads in our defined area 
+osm_features <- opq(bbox = bbox) %>%
+  add_osm_feature(key = "highway") %>%  # Add features like roads
+  osmdata_sf()
+
+#put the roads data into a dataset called roads
+roads <- osm_features$osm_lines
+
+#plot the data
+plot_experiment <- ggplot() +
+  geom_sf(data = roads, color = "gray50", size = 0.3) + # Add OSM roads
+  geom_sf(data = oxonly_multdep, aes(fill = IMD_Decile), color = NA, alpha = 0.6) +
+  scale_fill_viridis_c(name = "Index of Multiple Deprivation, 2019", direction = -1) +
+  geom_sf(data = oxford_postcodes_sf, color = "white", alpha = 0.1) +
+  geom_point(data = interest_points_sf, 
+             aes(x = st_coordinates(interest_points_sf)[,1], 
+                 y = st_coordinates(interest_points_sf)[,2], 
+                 color = colour), 
+             size = 3, pch = 19) +
+  scale_colour_identity() +
+  theme_minimal() +
+  labs(title = "Oxfordshire", x = "", y = "")
+
+print(plot_experiment)
+
+```
+
+```{r 3rd map - with place names}
+
+#define the area you want your map to consist of
+bbox <- c(left = -1.7, bottom = 51.5, right = -0.9, top = 52.2) # Oxfordshire bounds
+
+#get more osm data: this time, placenames of towns & cities
+osm_data <- opq(bbox = bbox) %>%
+  add_osm_feature(key = "place", value = c("town", "city")) %>%  # Filter for villages, towns, and cities
+  osmdata_sf()
+
+# Filter the data to include only places with names and of the specified types
+places_with_names <- osm_data$osm_points[!is.na(osm_data$osm_points$name), ]
+
+
+#plot just the names
+placename_plot <- ggplot() +
+  geom_label(data = places_with_names, 
+             aes(x = st_coordinates(geometry)[, 1], 
+                 y = st_coordinates(geometry)[, 2], 
+                 label = name), 
+             size = 3, nudge_y = 0.00005, nudge_x = 0.00005, 
+             color = "black", label.padding = unit(0.1, "lines"), 
+             label.size = 0, alpha = 0.7) +  # Adding labels with background
+  coord_sf() +  # Keep the map's projection
+  labs(title = "Villages, Towns, and Cities in Oxford") +  # Title for the map
+  theme_minimal()  # Minimalist theme for better readability
+
+print(placename_plot)
+```
+
+```{r combining IMD & placename plots, fig.height = 6*1.5, fig.width = 7*1.5}
+
+# Ensure all spatial data are using the same CRS
+oxonly_multdep <- st_transform(oxonly_multdep, crs = 4326)
+oxford_postcodes_sf <- st_transform(oxford_postcodes_sf, crs = 4326)
+interest_points_sf <- st_transform(interest_points_sf, crs = 4326)
+places_with_names <- st_transform(places_with_names, crs = 4326)
+
+# Create the combined plot
+combined_plot <- ggplot() +
+  # Add IMD Decile as a filled map
+  geom_sf(data = oxonly_multdep, aes(fill = IMD_Decile), colour = NA) + 
+  scale_fill_viridis_c(name = "Index of Multiple Deprivation, 2019", direction = -1) +
+  
+  # Add Oxford postcode sectors as outlines
+  geom_sf(data = oxford_postcodes_sf, colour = "white", alpha = 0.1) +
+  
+  # Add points of interest
+  geom_point(data = interest_points_sf, aes(x = st_coordinates(geometry)[, 1], 
+                                            y = st_coordinates(geometry)[, 2], 
+                                            colour = colour), 
+             size = 3, pch = 19) + 
+  scale_colour_identity() +
+  
+  # Add labels to points of interest with nudging: removed for this particular map
+  #geom_label(data = interest_points_sf, 
+             #aes(x = st_coordinates(geometry)[, 1], 
+                 #y = st_coordinates(geometry)[, 2], 
+                 #label = Location), 
+             #size = 3, nudge_y = 0.00005, nudge_x = 0.00005, 
+             #colour = "#770088", label.padding = unit(0.1, "lines"), 
+             #label.size = 0, alpha = 0.5) +
+  
+  # Add place name labels (villages, towns, cities)
+  geom_label(data = places_with_names, 
+             aes(x = st_coordinates(geometry)[, 1], 
+                 y = st_coordinates(geometry)[, 2], 
+                 label = name), 
+             size = 3, nudge_y = 0.00005, nudge_x = 0.00005, 
+             colour = "black", label.padding = unit(0.1, "lines"), 
+             label.size = 0, alpha = 0.7) +
+  
+  # Adjust for the map's projection and ensure all layers fit properly
+  coord_sf(xlim = c(-1.7, -0.85), ylim = c(51.5, 52.2)) +  # Set limits to fit Oxfordshire area
+  labs(title = "Oxfordshire with Towns and Cities", x="", y="") +
+
+  # Use a minimal theme for cleaner presentation
+  theme_minimal() +
+  
+  # Optionally adjust theme further for better legibility of labels
+  theme(
+    plot.title = element_text(size = 14, hjust = 0.5),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+
+# Print the combined plot
+print(combined_plot)
+
+```
